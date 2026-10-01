@@ -10,7 +10,7 @@ pub const Token = struct {
     pub const keywords_eng = std.StaticStringMap(Tag).initcomptime(.{
         .{ "eng", .invalid },
     });
-    pub const keywords_ger = std.StaticstringMap(Tag).initComptime(.{
+    pub const keywords_ger = std.StaticStringMap(Tag).initComptime(.{
         .{ "deu", .invalid },
     });
 
@@ -20,10 +20,130 @@ pub const Token = struct {
     pub const Tag = enum {
         invalid, //
         identifier,
+        string_literal,
+        eof,
+        number_literal,
+        new_line,
+        period,
+        comment,
+        bang,
+        pipe,
+        equal,
+        underscore,
+        percent,
+        quotation_mark,
+        hashtag,
+        dollor_sign,
+        ampersand,
+        apostrophe,
+        asterisk,
+        plus,
+        minus,
+        slash,
+        backslash,
+        comma,
+        colon,
+        semicolon,
+        angle_brackets_left,
+        angle_brackets_right,
+        question_mark,
+        commercial_at,
+        caret,
+        tilde,
+        backtick,
+        l_paren,
+        r_paren,
+        l_brace,
+        r_brace,
+        l_bracket,
+        r_bracket,
+
+        //buffers
+        function_buffer,// F|
+        characteristics_bar_buffer,// S|
+        add_buffer,// D|
+        select_buffer,// H|
+        screen_buffer,// M|
+        user_buffer,// U|
+        global_buffer,// G|
+        text_buffer,// T|
+        print_buffer,// P|
+        parent_screen_buffer,// A|
+        environment_buffer,// E|
+        load_buffer,// 0-9|
+        select_bar_buffer,// L|
+        // commands,
+        //interpreter zeile
+        keyword_interpreter_line,// ..!
+        keyword_interpreter,
+        keyword_declaration,
+        keyword_german,
+        keyword_english,
+        keyword_translate,
+        keyword_noabbrev,
+
         pub fn lexeme(tag: Tag) ?[]const u8 {
             return switch (tag) {
                 .invalid,
+                .identifier,
+                .eof,
+                .number_literal,
+                .load_buffer,
                 => null,
+                .new_line => "\n",// TODO: should there me more whitespace shit
+                .period => ".",
+                .comment => "..",
+                .bang => "!",
+                .pipe => "|",
+                .equal => "=",
+                .underscore => "_",
+                .percent => "%",
+                .question_mark => "\"",
+                .hashtag => "#",
+                .dollor_sign => "$",
+                .ampersand => "&",
+                .apostrophe => "\'",
+                .asterisk => "*",
+                .plus => "+",
+                .minus => "-",
+                .slash => "/",
+                .backslash => "\\",
+                .comma => ",",
+                .colon => ":",
+                .semicolon => ";",
+                .angle_brackets_left => "<",
+                .angle_brackets_right => ">",
+                .quotation_mark => "?",
+                .commercial_at => "@",
+                .caret => "^",
+                .tilde => "~",
+                .backtick => "`",
+                .l_paren => "(",
+                .r_paren => ")",
+                .l_brace => "{",
+                .r_brace => "}",
+                .l_bracket => "[",
+                .r_bracket => "]",
+
+                .function_buffer => "F|",
+                .characteristics_bar_buffer => "S|",
+                .add_buffer => "D|",
+                .select_buffer => "H|",
+                .screen_buffer => "M|",
+                .user_buffer => "U|",
+                .global_buffer => "G|",
+                .text_buffer => "T|",
+                .print_buffer => "P|",
+                .parent_screen_buffer => "A|",
+                .environment_buffer => "E|",
+                .select_bar_buffer => "L|",
+                .keyword_interpreter_line => "..!",
+                .keyword_interpreter => "interpreter",
+                .keyword_declaration => "declaration",
+                .keyword_german => "german",
+                .keyword_english => "english",
+                .keyword_translate => "translate",
+                .keyword_noabbrev => "noabbrev",
             };
         }
         pub fn symbol(tag: Tag) []const u8 {
@@ -51,10 +171,13 @@ pub const Tokenizer = struct {
         expect_newline,
     };
     pub fn next(self: *Tokenizer) Token {
-        var result: Token = .{ .tag = undefined, .loc = .{
-            .start = self.index,
-            .end = undefined,
-        } };
+        var result: Token = .{
+            .tag = undefined,
+            .loc = .{
+                .start = self.index,
+                .end = undefined,
+             }
+        };
         state: switch (State.start) {
             .start => {},
             else => continue :state .start,
