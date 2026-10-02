@@ -29,7 +29,7 @@ pub const Token = struct {
         return lang.get(bytes);
     }
     pub const Tag = enum {
-        invalid, //
+        invalid,
         identifier,
         string_literal,
         eof,
@@ -85,6 +85,7 @@ pub const Token = struct {
         load_buffer,// 0-9|
         select_bar_buffer,// L|
         // commands,
+        command,
         //interpreter zeile
         keyword_interpreter_line,// ..!
         keyword_interpreter,
@@ -102,9 +103,10 @@ pub const Token = struct {
                 .token_error,
                 .string_literal,
                 .number_literal,
+                .command,
                 .load_buffer,
                 => null,
-                .new_line => "\n",// TODO: should there me more whitespace shit
+                .new_line => "\n",// TODO: should there be a new line token?
                 .period => ".",
                 .comment => "..",
                 .bang => "!",
@@ -181,6 +183,7 @@ pub const Tokenizer = struct {
     }
     const State = enum {
         start,
+        identifier,
         expect_newline,
         string_literal,
         comment_start,
@@ -221,7 +224,7 @@ pub const Tokenizer = struct {
                     result.loc.start = self.index;
                     continue :state .start; 
                 },
-                '"' => {
+                '\"' => {
                     result.tag = .string_literal;
                     continue :state .string_literal;
                 },
@@ -237,14 +240,15 @@ pub const Tokenizer = struct {
                     self.index += 1;
                     switch (self.buffer[self.index]){
                         '.' => {
+                            result.tag = .comment;
                             continue :state .comment_start;
                         },
                         'a'...'z', 'A'...'Z' => {
+                            result.tag = .command;
                             continue :state .commands;
                         },
                         else => {
                             result.tag = .period;
-                            self.index += 1;
                         }
                     }
                 },
@@ -374,11 +378,7 @@ pub const Tokenizer = struct {
                             continue :state .invalid;
                         }
                     },
-                    '\n' =>{
-                        self.index += 1;
-                        result.loc.start = self.index;
-                        continue :state .invalid;
-                    },
+                    '\n' => self.index -= 1,
                     else => continue :state .invalid,
                 }
             },
@@ -392,6 +392,24 @@ pub const Tokenizer = struct {
                     },
                     '\n' => result.tag = .invalid,
                     else => continue :state .invalid,
+                }
+            },
+            .string_literal => {
+                self.index += 1;
+                switch (self.buffer[self.index]) {
+                    0 => {
+                        if (self.index != self.buffer.len){
+                            continue :state .invalid;
+                        } else {
+                            result.tag = .invalid;
+                        }
+                    },
+                    '\n' => result.tag = .invalid,
+                    '\"' => self.index += 1,
+                    0x01...0x09, 0x0b...0x1f, 0x7f => {
+                        continue :state .invalid;
+                    },
+                    else => continue :state .string_literal,
                 }
             },
             .identifier => {
@@ -438,9 +456,11 @@ pub const Tokenizer = struct {
                         self.index += 1;
                     },
                     '\n' => {
-                        self.index += 1;
-                        result.loc.start = self.index;
-                        continue :state .start;
+                        result.tag = .comment;
+                        // TODO: i think ls should have a comment token?
+                        //self.index += 1;
+                        // result.loc.start = self.index;
+                        // continue :state .start;
                     },
                     '\r' => continue :state .expect_newline,
                     0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f =>{
@@ -464,9 +484,7 @@ pub const Tokenizer = struct {
                         };
                     },
                     '\n' => {
-                        self.index += 1;
-                        result.loc.start = self.index;
-                        continue :state .start;
+                        result.tag = .comment;
                     },
                     '\r' => continue :state .expect_newline,
                     0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f =>{

@@ -1,71 +1,57 @@
 const std = @import("std");
 const Io = std.Io;
+const Dir = Io.Dir;
 
-const fols = @import("fols");
-
+const Tok = @import("tokenizer.zig");
+const Token = Tok.Token;
 pub fn main(init: std.process.Init) !void {
-    // Prints to stderr, unbuffered, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
-    // This is appropriate for anything that lives as long as the process.
     const arena: std.mem.Allocator = init.arena.allocator();
 
-    // Accessing command line arguments:
     const args = try init.minimal.args.toSlice(arena);
-    for (args) |arg| {
-        std.log.info("arg: {s}", .{arg});
-    }
-
-    // In order to do I/O operations need an `Io` instance.
+    if (args.len < 2) return;
     const io = init.io;
 
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
     var stdout_buffer: [1024]u8 = undefined;
     var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
     const stdout_writer = &stdout_file_writer.interface;
-
-    try fols.printAnotherMessage(stdout_writer);
-
+    if (args.len == 3 and std.mem.eql(u8,  "-d",args[1])){
+        try parseFiles(arena, io, args[2],stdout_writer);
+        return;
+    }
+    for (args[1..])|arg|{
+        try parseFile( arena,io, arg, stdout_writer);
+    }
     try stdout_writer.flush(); // Don't forget to flush!
 }
-
-test "simple test" {
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(i32) = .empty;
-    defer list.deinit(gpa); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(gpa, 42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+pub fn parseFiles(alloc: std.mem.Allocator, io: std.Io, file_path: [:0]const u8, writer: *std.Io.Writer)!void{
+    var dir = try std.Io.Dir.cwd().openDir(io, file_path, .{.iterate = true});
+    defer dir.close(io);
+    var entries = dir.iterate();
+    while (try entries.next(io)) |entry|{
+        const source: [:0]const u8 = &.{ file_path, entry.name};
+        try parseFile(alloc, io, source, writer);
+    }
 }
-
-test "fuzz example" {
-    try std.testing.fuzz({}, testOne, .{});
-}
-
-fn testOne(context: void, smith: *std.testing.Smith) !void {
-    _ = context;
-    // Try command `zig build test --fuzz -Doptimize=ReleaseFast` to see if it manages to fail this test case!
-
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(u8) = .empty;
-    defer list.deinit(gpa);
-    while (!smith.eos()) switch (smith.value(enum { add_data, dup_data })) {
-        .add_data => {
-            const slice = try list.addManyAsSlice(gpa, smith.value(u4));
-            smith.bytes(slice);
+pub fn parseFile(alloc: std.mem.Allocator,io: std.Io,file_path: [:0]const u8, writer: *std.Io.Writer) !void{
+        if (std.Io.Dir.cwd().readFileAllocOptions(io, file_path, alloc, .unlimited, .@"1", 0))|source|{
+        var tokenizer = Tok.Tokenizer.init(source);
+        var token: Token = .{
+            .tag = .invalid,
+            .loc = undefined,
+        };
+        while (token.tag != .eof){
+            token = tokenizer.next();
+            //tokenizer.dump(&token);
+            try writer.print("<{s}, {s}/>\n", .{@tagName(token.tag), source[token.loc.start..token.loc.end]});
+            try writer.flush();
+        }
+    } else |err| switch(err){
+        error.FileNotFound, => {
+            try writer.print("",.{});
+            try writer.flush();
         },
-        .dup_data => {
-            if (list.items.len == 0) continue;
-            if (list.items.len > std.math.maxInt(u32)) return error.SkipZigTest;
-            const len = smith.valueRangeAtMost(u32, 1, @min(32, list.items.len));
-            const off = smith.valueRangeAtMost(u32, 0, @intCast(list.items.len - len));
-            try list.appendSlice(gpa, list.items[off..][0..len]);
-            try std.testing.expectEqualSlices(
-                u8,
-                list.items[off..][0..len],
-                list.items[list.items.len - len ..],
-            );
+        else => {
         },
-    };
+    }
 }
