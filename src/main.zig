@@ -29,23 +29,24 @@ pub fn parseFiles(alloc: std.mem.Allocator, io: std.Io, file_path: [:0]const u8,
     defer dir.close(io);
     var entries = dir.iterate();
     while (try entries.next(io)) |entry|{
-        const source: [:0]const u8 = &.{ file_path, entry.name};
+        const source = try std.mem.concatWithSentinel(alloc, u8, &[_][]const u8{file_path, entry.name}, 0);
+        defer alloc.free(source);
         try parseFile(alloc, io, source, writer);
     }
 }
 pub fn parseFile(alloc: std.mem.Allocator,io: std.Io,file_path: [:0]const u8, writer: *std.Io.Writer) !void{
         if (std.Io.Dir.cwd().readFileAllocOptions(io, file_path, alloc, .unlimited, .@"1", 0))|source|{
         var tokenizer = Tok.Tokenizer.init(source);
-        var token: Token = .{
-            .tag = .invalid,
-            .loc = undefined,
-        };
-        while (token.tag != .eof){
-            token = tokenizer.next();
-            //tokenizer.dump(&token);
-            try writer.print("<{s}, {s}/>\n", .{@tagName(token.tag), source[token.loc.start..token.loc.end]});
-            try writer.flush();
-        }
+            var token: Token = .{
+                .tag = .invalid,
+                .loc = undefined,
+            };
+            while (token.tag != .eof){
+                token = tokenizer.next();
+                //tokenizer.dump(&token);
+                try writer.print("<{s}, {s}/>\n", .{@tagName(token.tag), source[token.loc.start..token.loc.end]});
+                try writer.flush();
+            }
     } else |err| switch(err){
         error.FileNotFound, => {
             try writer.print("",.{});

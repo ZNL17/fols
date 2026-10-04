@@ -219,10 +219,24 @@ pub const Tokenizer = struct {
                         continue :state .invalid;
                     }
                 },
-                ' ', '\n', '\t', '\r' =>{
+                ' ', '\t', =>{
                     self.index +=1;
                     result.loc.start = self.index;
                     continue :state .start; 
+                },
+                '\n' => {
+                    result.tag = .new_line;
+                    self.index += 1;
+                },
+                '\r' => {
+                    self.index += 1;
+                    switch (self.buffer[self.index]){
+                        '\n' => {
+                            result.tag = .new_line;
+                            self.index += 1;
+                        },
+                        else => continue :state .invalid,
+                    }
                 },
                 '\"' => {
                     result.tag = .string_literal;
@@ -455,13 +469,7 @@ pub const Tokenizer = struct {
                         result.tag = .keyword_interpreter_line;
                         self.index += 1;
                     },
-                    '\n' => {
-                        result.tag = .comment;
-                        // TODO: i think ls should have a comment token?
-                        //self.index += 1;
-                        // result.loc.start = self.index;
-                        // continue :state .start;
-                    },
+                    '\n' => {},
                     '\r' => continue :state .expect_newline,
                     0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f =>{
                         continue :state .invalid;
@@ -483,9 +491,7 @@ pub const Tokenizer = struct {
                             },
                         };
                     },
-                    '\n' => {
-                        result.tag = .comment;
-                    },
+                    '\n' => {},
                     '\r' => continue :state .expect_newline,
                     0x01...0x09, 0x0b...0x0c, 0x0e...0x1f, 0x7f =>{
                         continue :state .invalid;

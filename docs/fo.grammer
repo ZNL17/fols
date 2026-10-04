@@ -1,0 +1,574 @@
+/**
+ * Fo grammer impl in Antler g4
+*\
+
+parser grammer fop_parser;
+
+model
+    : new_line*
+    (
+      element
+      new_line
+      new_line*
+    )*
+    ;
+
+element: 
+    : 
+    ( 
+      system_element
+    | comment
+    | tag_line
+    | command
+    | jump
+    | output_line
+    )
+    ;
+
+system_element
+    :
+      '..!' 
+    ( 
+      interpreter 
+    | old_meta_line
+    )
+    ;
+comment
+    : '..'  comment_content?
+    ;
+
+tag_line
+    : '..<'
+      '/'?
+      fop_id property* 
+      '>'
+      comment_content?
+    ;
+command
+    : '.'
+    (
+      command_type
+    | dynamic_command
+    )
+    condition?
+    ;
+jump
+    : '!'
+      white_space?
+      jump_label
+      jump_comment?
+    ;
+output_line
+    :
+    (
+      output_no_condition
+    | '?' output_with_condition condition?
+    )
+    ;
+interpreter
+    : 'interpreter'
+      id_item*
+    ;
+old_meta_line
+    : 'meta'
+       meta_item*
+    ;
+
+meta_item
+    : db_buffer
+      '='
+    (
+      id_or_db_ref
+    | infosys_ref
+    )
+    ;
+property
+    :
+    (
+      fop_id
+    | db_buffer
+    )
+    (
+      '='
+      '\''
+      (
+        id_or_db_ref
+      | infosys_ref
+      )?
+      '\''
+    )?
+    ;
+id_or_db_ref
+    : id_or_db_name
+    ;
+id_or_db_name
+    : fop_id
+    (
+      ':'
+      int
+      (
+        '.'
+        int
+      )*
+    )?
+    ;
+
+infosys_ref
+    : fop_id '/' infosys_name
+    ;
+
+infosys_name
+    : 
+    (
+      fop_id
+    | int
+    | '.'
+    )+
+    ;
+special_keyword
+    :
+    (
+      '..'
+    | '..!'
+    | '..<'
+    )
+    ;
+comment_content
+    : 
+    (
+    fop_id
+    | int 
+    | string_literal  
+    | any_other
+    | buffer
+    | special_keyword
+    | file_separator
+    | '.'
+    | '^'
+    | '?'
+    | '\''
+    | '&'
+    )+
+    ;
+
+comment_id
+    :
+    (
+      id
+    | cmd_head
+    | cmd_keyword
+    )
+    ;
+
+head
+    : id
+    ( '.' fop_id )?
+    ;
+
+general_command
+    : head
+      general_body
+    ;
+
+general_body
+    :
+    (
+      general_item
+    | option
+    )*
+    end?
+    ;
+
+general_item
+    (
+      variable_output
+    | string_item
+    | int_item
+    | combi_variable
+    | function
+    )
+    ;
+
+end 
+    :
+    (
+      (
+        '+'
+      | '-'
+      | '.'
+      )+
+      | '+' id
+    )
+    ;
+
+option
+    :
+    (
+      normal_option
+    | min_option
+    )
+    ;
+
+normal_option
+    : fop_id
+    ;
+
+min_option
+    : '-' fop_id
+    ;
+
+output_no_condition
+    :
+    (
+      output_tokens
+    | variable_output
+    )
+    (
+      norm7_output_tokens
+    | variable_output
+    )*
+    ;
+
+output_with_condition
+    : 
+    (
+      norm6_output_tokens
+    | variable_output
+    )
+    ;
+output_tokens
+    :
+    (
+      fop_id
+    | int
+    | string_literal
+    | any_other
+    | buffer
+    | output_line_token
+    )
+    ;
+
+norm4_output_tokens
+    :
+    (
+      fop_id
+    | int
+    | string_literal
+    | any_other
+    | buffer
+    norm4_output_line_token
+    )
+    ;
+
+norm6_output_tokens
+    :
+    (
+      fop_id
+    | int
+    | string_literal
+    | any_other
+    | buffer
+    | norm6_output_line_token
+    )
+    ;
+
+norm7_output_tokens
+    :
+    (
+      fop_id
+    | int
+    | string_literal
+    | any_other
+    | buffer
+    | norm7_output_line_token
+    )
+    ;
+
+command_type
+    :
+    (
+
+    )
+    ;
+//commands
+//
+
+type
+    : fop_id
+    (
+      int 
+    | '.'
+    | ':'
+    )*
+    ;
+
+variable_name
+    : u_buffer?
+      fop_id
+    (
+      '.'
+      u_buffer?
+      fop_id
+    )*
+    ;
+
+sub_var
+    :
+    (
+      g_sub_var
+    | u_sub_var
+    | db_sub_var
+    )
+    ;
+
+u_sub_var
+    : u_buff_head
+      fop_id?
+    ;
+db_sub_var
+    : db_buf_head
+      fop_id?
+    ;
+
+end_sub_var
+    :
+    (
+      end_g_sub_var
+    | end_u_sub_var
+    | end_db_sub_var
+    )
+    ;
+
+end_g_sub_var
+    : g_buff_head
+      fop_id
+    ;
+
+end_u_sub_var
+    : u_buf_head
+      fop_id
+    ;
+
+end_db_sub_var
+    : db_buf_head
+      fop_id
+    ;
+
+combi_var_head
+    :
+    (
+      sub_var '.'
+    )*
+    end_sub_var
+    ;
+
+cast  
+    : '(' fop_id '=' expression ')'
+    ;
+
+precision
+    : ':' expression
+    ;
+
+combi_variable
+    : combi_var_head
+    (
+      '^' field
+    )*
+    ;
+
+e_buffer_variable
+    : e_buf_head
+      enviroment_id
+    ;
+
+enviroment_id
+    : fop_id 
+    (
+      fop_id
+    | '-'
+    | int
+    )*
+    ;
+
+field 
+    : fop_id
+    ;
+
+variable_output
+    : '\''
+    (
+      combi_variable
+    | function
+    | e_buffer_variable
+    | variable_without_buffer
+    ) 
+    cast?
+    precision?
+    '\''
+    ;
+
+db_buf_head
+    :
+    (
+      (
+        [0-9] '|'
+      )
+      | 'S|'
+      | 'D|'
+      | 'H|'
+      | 'M|'
+      | 'T|'
+      | 'P|'
+      | 'A|'
+      | 'L|'
+    )
+    int?
+    ;
+
+g_buf_head
+    : 'G|' int?
+    ;
+
+u_buf_head
+    : 'U|' int?
+    ;
+
+e_buf_head
+    : 'E|'
+    ;
+
+buffer
+    :
+    (
+      db_buffer
+    | g_buffer
+    | u_buffer
+    | f_buffer  
+    | e_buffer
+    )
+    ;
+
+db_buffer
+    :
+    (
+      (
+        [0-9] '|'
+      )
+      | 'S|'
+      | 'D|'
+      | 'H|'
+      | 'M|'
+      | 'T|'
+      | 'P|'
+      | 'A|'
+      | 'L|'
+    )
+    ;
+g_buffer
+    : 'G|'
+    ;
+
+u_buffer
+    : 'U|'
+    ;
+
+f_buffer
+    : 'F|'
+    ;
+
+e_buffer
+    : 'E|'
+    ;
+
+function_name
+    : 'F|' fop_id
+    ;
+
+function
+    : function_name
+      '(' 
+      expression?
+      (
+        ',' expression?
+      )*
+      ')'
+      (
+        '^' field
+      )*
+    ;
+condition
+    : '?' expreession
+    ;
+
+fop_id
+    :
+    (
+      id
+    | ...
+    )
+    ;
+jumb_label
+    : fop_id
+    (
+      ...
+    )
+atomic
+    : int 
+    | float 
+    | string_literal
+    ;
+float
+    : int '.' int 
+    ; 
+// 
+file_separator
+    : '!'
+    | '"'
+    | '%'
+    | '('
+    | ')'
+    | '*'
+    | '/'
+    | ':'
+    | ';'
+    | '<'
+    | '>'
+    | '{'
+    | '}'
+    | '['
+    | ']'
+    | '='
+    | '@'
+    | '\\'
+    | '_'
+    | '`'
+    | '~'
+    | '|'
+    | '#'
+    | '$'
+    | '+'
+    | '-'
+    | ','
+    ;
+// lexer things
+new_line
+    : '\r'? '\n'
+    ;
+white_space
+    : [ \t]+ -> skip
+    ;
+id
+    : '$'? [a-zA-Z] [a-zA-Z0-9\u00C4\u00D6\u00DC\u00E4\u00F6\u00FC\u00DF]*
+    ;
+int
+    : [0-9]+
+    ;
+string_literal:
+    : '"' ~["\r\n]* '"'
+    ;
+any_other
+    ; .
+    ;
+
+
